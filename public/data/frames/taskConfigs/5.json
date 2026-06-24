@@ -1,0 +1,61 @@
+{
+  "version": "1.0",
+  "configType": "multi-timed",
+  "name": "多帧发送配置",
+  "instanceRefs": [
+    {
+      "id": "24",
+      "label": "测试测距计算 #8",
+      "frameId": "test004"
+    },
+    {
+      "id": "25",
+      "label": "南开大学-RS422移频信号控制 #2",
+      "frameId": "NK002"
+    },
+    {
+      "id": "24",
+      "label": "测试测距计算 #8",
+      "frameId": "test004"
+    }
+  ],
+  "targets": [
+    {
+      "instanceId": "24",
+      "targetId": "network:conn_1754903532226_dmxr1yv01:remote_1754959357801_i2455us8o",
+      "interval": 1,
+      "enableVariation": true,
+      "fieldVariations": [
+        {
+          "fieldId": "p2_Tp4UPWDutIZopqgtsA",
+          "values": [
+            "1"
+          ]
+        }
+      ]
+    },
+    {
+      "instanceId": "25",
+      "targetId": "network:conn_1754903532226_dmxr1yv01:remote_1754959357801_i2455us8o",
+      "interval": 1,
+      "enableVariation": false,
+      "fieldVariations": []
+    },
+    {
+      "instanceId": "24",
+      "targetId": "network:conn_1754903532226_dmxr1yv01:remote_1754959357801_i2455us8o",
+      "interval": 1,
+      "enableVariation": false,
+      "fieldVariations": []
+    }
+  ],
+  "createdAt": "2025-08-14T06:47:51.432Z",
+  "updatedAt": "2025-08-14T06:47:51.432Z",
+  "strategy": {
+    "type": "timed",
+    "sendInterval": 1000,
+    "repeatCount": 10,
+    "isInfinite": false,
+    "startDelay": 0
+  }
+}

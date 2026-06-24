@@ -1,0 +1,78 @@
+feature: 2026-06-06-fpga-rs422-console
+created: 2026-06-06
+
+steps:
+  - action: "Catalog and protocol core: encode all supplied modules, command groups, command params, telemetry groups, and pure RS422 build/parse functions"
+    exit_signal: "Vitest covers golden command frames from 主机指令具体执行 and core checksum/word/byte/header behavior"
+    status: completed
+  - action: "Feature service and UI-facing helpers: provide command build/send entry, catalog selectors, default param values, and display row mappers"
+    exit_signal: "Service/helper tests cover module/group option generation, bit-width validation, disabled send cases, and successful write through a fake connection writer"
+    status: completed
+  - action: "Page shell and navigation: add route, sidebar entry, and static two-panel FPGA RS422 console layout"
+    exit_signal: "Route/nav files include one removable mount point and the page renders command and telemetry module selectors without protocol logic in the template"
+    status: completed
+  - action: "Command UI wiring: connect selected module/group/params to build/send flow and render final bytes, payload words, and field explanations"
+    exit_signal: "Manual static inspection and component logic show command selection, parameter editing, send disable/error states, and trace display are wired through feature helpers/service"
+    status: completed
+  - action: "Telemetry ingest and parse display: parse recent serial data into bounded telemetry results with raw bytes, payload words, checksum state, and field explanations"
+    exit_signal: "Tests cover valid telemetry, bad checksum, unknown module/group, incomplete data, and the page consumes parsed results without SCOE/northbound/task coupling"
+    status: completed
+  - action: "Verification and style gate: run focused tests, lint/build, and frontend hard-coded visual value scans for touched UI/config files"
+    exit_signal: "Verification commands are recorded with outcomes; hardware validation remains explicitly unclaimed"
+    status: completed
+
+checks:
+  - item: "Feature remains independent from SCOE, command-ingress, northbound, result/report, and task execution plans"
+    source: 范围守护
+    status: completed
+  - item: "All supplied command modules, command groups, and command parameters are represented in the catalog"
+    source: 名词契约
+    status: completed
+  - item: "All supplied telemetry modules, telemetry groups, and telemetry fields are represented in the catalog"
+    source: 名词契约
+    status: completed
+  - item: "Command build result exposes final byte stream, payload words, checksum, header explanation, and per-parameter explanation"
+    source: 名词契约
+    status: completed
+  - item: "Telemetry parse result exposes raw bytes/frame words, payload words, checksum expected/actual, module/group, fields, and issues"
+    source: 名词契约
+    status: completed
+  - item: "Command flow uses selected serial connection, selected command module, selected command group, dynamic parameter form, pure core build, and connectionService.write"
+    source: 编排骨架
+    status: completed
+  - item: "Telemetry flow parses serial data into UI-visible results without placing FPGA protocol rules in runtime or page template"
+    source: 编排骨架
+    status: completed
+  - item: "Route /fpga-rs422 is added as a removable mount point"
+    source: 挂载点
+    status: completed
+  - item: "AppShell navigation adds a removable FPGA console entry"
+    source: 挂载点
+    status: completed
+  - item: "FpgaRs422ConsolePage is the only new route page for the feature"
+    source: 挂载点
+    status: completed
+  - item: "features/fpga-rs422 owns catalog, core, services/composables/components, fixtures, and tests for the feature"
+    source: 挂载点
+    status: completed
+  - item: "Pulse commands with zero payload data words build a payload containing only the header word"
+    source: 验收场景
+    status: completed
+  - item: "Multi-parameter command groups set param_count to parameter count, not payload data word count"
+    source: 验收场景
+    status: completed
+  - item: "Telemetry param_count is interpreted as telemetry data word count"
+    source: 验收场景
+    status: completed
+  - item: "Payload length, high-byte-first word order, and 32-bit natural-wrap checksum follow the reference protocol"
+    source: 验收场景
+    status: completed
+  - item: "No selected serial connection disables or clearly rejects send"
+    source: 验收场景
+    status: completed
+  - item: "Input values exceeding declared bit width fail before transport write"
+    source: 验收场景
+    status: completed
+  - item: "Unknown telemetry module/group, bad checksum, and incomplete/non-aligned data remain visible with parser issues"
+    source: 验收场景
+    status: completed

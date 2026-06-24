@@ -1,0 +1,112 @@
+import { createRequire } from 'node:module';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { registerSerialHandlers, cleanupSerialHandlers } from './serial-handlers';
+import { registerNetworkHandlers, cleanupNetworkHandlers } from './network-handlers';
+import { registerFileHandlers, cleanupFileHandlers } from './file-handlers';
+import { registerHttpHandlers, cleanupHttpHandlers } from './http-handlers';
+import { registerStorageHandlers, cleanupStorageHandlers } from './storage-handlers';
+import { storageFilter } from './storage-filter';
+
+const require = createRequire(import.meta.url);
+const { app, BrowserWindow } = require('electron') as typeof import('electron');
+const platform = process.platform || os.platform();
+const currentDir = fileURLToPath(new URL('.', import.meta.url));
+
+let mainWindow: BrowserWindow | undefined;
+
+function configureChromiumGpuFallback() {
+  if (platform !== 'win32' || process.env.ELECTRON_ENABLE_HARDWARE_ACCELERATION === '1') {
+    return;
+  }
+
+  app.disableHardwareAcceleration();
+  app.commandLine.appendSwitch('disable-gpu');
+  app.commandLine.appendSwitch('disable-gpu-compositing');
+  app.commandLine.appendSwitch('disable-gpu-sandbox');
+  app.commandLine.appendSwitch('disable-direct-composition');
+  app.commandLine.appendSwitch('enable-unsafe-swiftshader');
+  app.commandLine.appendSwitch('use-angle', 'swiftshader');
+  app.commandLine.appendSwitch('use-gl', 'swiftshader');
+  app.commandLine.appendSwitch('disable-features', [
+    'CalculateNativeWinOcclusion',
+    'D3D11VideoDecode',
+    'HardwareMediaKeyHandling',
+    'MediaFoundationVideoDecode',
+    'VizDisplayCompositor',
+  ].join(','));
+}
+
+configureChromiumGpuFallback();
+
+function getPreloadPath() {
+  const preloadFolder = process.env.QUASAR_ELECTRON_PRELOAD_FOLDER ?? 'preload';
+  const preloadExtension = process.env.QUASAR_ELECTRON_PRELOAD_EXTENSION ?? '.cjs';
+
+  return path.resolve(currentDir, path.join(preloadFolder, `index${preloadExtension}`));
+}
+
+async function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    minWidth: 960,
+    minHeight: 640,
+    useContentSize: true,
+    show: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: false,
+      preload: getPreloadPath(),
+    },
+  });
+
+  registerSerialHandlers(mainWindow);
+  registerNetworkHandlers(mainWindow);
+  registerFileHandlers();
+  registerHttpHandlers();
+  registerStorageHandlers();
+
+  const appUrl = process.env.APP_URL;
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show();
+  });
+
+  mainWindow.webContents.once('did-finish-load', () => {
+    if (mainWindow?.isVisible() === false) {
+      mainWindow.show();
+    }
+  });
+
+  if (process.env.DEV && appUrl) {
+    await mainWindow.loadURL(appUrl);
+  } else {
+    await mainWindow.loadFile('index.html');
+  }
+
+  mainWindow.on('closed', () => {
+    cleanupSerialHandlers();
+    cleanupNetworkHandlers();
+    cleanupFileHandlers();
+    cleanupHttpHandlers();
+    cleanupStorageHandlers();
+    storageFilter.cleanup();
+    mainWindow = undefined;
+  });
+}
+
+void app.whenReady().then(createWindow);
+
+app.on('window-all-closed', () => {
+  if (platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+app.on('activate', () => {
+  if (mainWindow === undefined) {
+    void createWindow();
+  }
+});

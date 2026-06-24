@@ -1,0 +1,30 @@
+feature: 2026-06-09-fpga-rs422-20260609-registry
+created: 2026-06-09
+
+steps:
+  - action: "Extend fpga-rs422 catalog types with traceable 20260609 UI/control/golden metadata"
+    exit_signal: "Types support source refs, UI control kind, bit range, signedness, options, and golden frame fixtures without breaking existing callers"
+    status: completed
+  - action: "Replace module/group raw-key labels with explicit Chinese labels"
+    exit_signal: "Service helper tests prove module and group options expose Chinese labels instead of raw keys"
+    status: completed
+  - action: "Align comm_rx_block command definitions with 20260609 docs"
+    exit_signal: "comm_rx map contains 8 params including LOOP_ENABLE and default MAP/VALUE/PULSE builds match documented bytes"
+    status: completed
+  - action: "Add golden frame regression tests"
+    exit_signal: "Vitest covers 20260609 comm_rx MAP, VALUE, RANGE_RST, COUNT_CLR, and MANUAL_RST golden frames"
+    status: completed
+  - action: "Verify and record results"
+    exit_signal: "Focused tests and lint results are recorded; hardware validation remains unclaimed"
+    status: pending
+
+checks:
+  - item: "No UI page/style edits in this registry item"
+    source: scope guard
+    status: completed
+  - item: "No transaction/northbound/result/report coupling introduced"
+    source: roadmap guard
+    status: completed
+  - item: "Unconfirmed labels/enums remain explicitly marked instead of invented"
+    source: 20260609 docs
+    status: completed

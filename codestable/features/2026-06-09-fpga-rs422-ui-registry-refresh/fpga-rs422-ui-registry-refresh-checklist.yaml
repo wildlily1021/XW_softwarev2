@@ -1,0 +1,22 @@
+feature: fpga-rs422-ui-registry-refresh
+status: implemented
+direct_contract:
+  - 待做任务/遥控遥测20260609v2(1)/UI字段定义/遥控字段定义/*.md
+  - 待做任务/遥控遥测20260609v2(1)/UI字段定义/遥测字段定义/*.md
+  - codestable/roadmap/fpga-rs422-protocol-closure/fpga-rs422-protocol-closure-items.yaml#fpga-rs422-ui-registry-refresh
+steps:
+  - id: registry-command-fields
+    status: completed
+    description: Align command fields, labels, bit ranges, signed flags, and UI controls with 20260609 UI field definitions.
+  - id: registry-telemetry-fields
+    status: completed
+    description: Align telemetry groups and fields, including bit slices, signed display metadata, comm_rx IQ group, and v2 ook_lock_state.
+  - id: session-command-drafts
+    status: completed
+    description: Keep command param drafts per module/group in renderer memory for the current app run only.
+  - id: page-control-rendering
+    status: completed
+    description: Render select/switch/number/trigger controls from registry metadata.
+  - id: verification
+    status: completed
+    description: Run targeted tests/static checks and record limitations.

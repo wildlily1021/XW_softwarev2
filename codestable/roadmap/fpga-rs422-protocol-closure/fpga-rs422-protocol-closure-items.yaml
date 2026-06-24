@@ -1,0 +1,43 @@
+roadmap: fpga-rs422-protocol-closure
+created: 2026-06-09
+
+items:
+  - slug: fpga-rs422-20260609-registry
+    description: 将 20260609 指令与状态/UI字段定义落成可追溯 FPGA RS422 registry，并补齐 module/group/param/telemetry/UI/golden frame fixture
+    depends_on: []
+    status: in-progress
+    feature: 2026-06-09-fpga-rs422-20260609-registry
+    minimal_loop: false
+    notes: "不得发明待确认中文名、枚举或时序；默认帧若与现有 protocol.ts 公式冲突，本项 blocked。"
+
+  - slug: fpga-rs422-ui-registry-refresh
+    description: 控制台按 registry 显示中文模块、指令组、参数名和控件类型，完成中文选择、参数编辑、构帧、串口写入和 trace 展示的最小闭环
+    depends_on: [fpga-rs422-20260609-registry]
+    status: in-progress
+    feature: 2026-06-09-fpga-rs422-ui-registry-refresh
+    minimal_loop: true
+    notes: "只声明静态/fixture/UI 手工闭环；不声明真实 FPGA 执行成功。"
+
+  - slug: fpga-rs422-transaction-service
+    description: 增加 FPGA RS422 command transaction service，区分 validation/transport/sent-unconfirmed/telemetry-observed/timeout/cancelled，并支持 reqId、attempt、timeout、retry、expected telemetry
+    depends_on: [fpga-rs422-20260609-registry]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: "writer.write 成功不得称为执行成功；没有 ACK 协议确认前不新增 acknowledged 状态。"
+
+  - slug: fpga-rs422-observability-fixtures
+    description: 增加 bounded recent frame/transaction snapshot、故障注入 fixture 和解析/事务回归测试，覆盖粘包、半帧、噪声、bad checksum、unknown module/group、timeout/retry
+    depends_on: [fpga-rs422-20260609-registry, fpga-rs422-transaction-service]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: "页面只消费节流后的只读 snapshot；不得让 runtime/page 承载 FPGA 协议语义。"
+
+  - slug: fpga-rs422-northbound-bridge
+    description: 在 northbound translator/task step 与 FPGA transaction port 之间建立内部桥接，使外部命令语义确认后可触发 RS422 命令事务并回读结果快照
+    depends_on: [fpga-rs422-transaction-service, fpga-rs422-observability-fixtures]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: "仅定义内部桥接；甲方 schema、枚举、错误码或报告交付未确认时，本项 design 必须 blocked。"
