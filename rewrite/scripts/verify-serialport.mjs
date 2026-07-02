@@ -1,10 +1,15 @@
-// Minimal verification that serialport loads and SerialPort.list() works
+// Minimal verification that the runtime serialport entry used by Electron main
+// loads and that SerialPort.list() works.
 // Run from rewrite/: node scripts/verify-serialport.mjs
 
-try {
-  const { SerialPort } = await import('serialport');
+import { createRequire } from 'node:module';
 
-  console.log('serialport loaded successfully');
+const require = createRequire(import.meta.url);
+
+try {
+  const { SerialPort } = require('serialport/dist/serialport');
+
+  console.log('serialport runtime entry loaded successfully');
   console.log('SerialPort class:', typeof SerialPort);
 
   const ports = await SerialPort.list();

@@ -17,11 +17,32 @@ const router = useRouter();
 const drawerOpen = ref(false);
 
 const navigationItems = [
-  { label: '遥控遥测', to: '/telemetry-telecommand', icon: 'satellite_alt' },
-  { label: '调试助手', to: '/debug-assistant', icon: 'construction' },
+  { label: '自动化测试', to: '/automation', icon: 'science'},
+  { label: '标准化测试', to: '/telemetry-telecommand', icon: 'satellite_alt'},
+  { label: '调试助手', to: '/debug-assistant', icon: 'construction'},
 ] as const;
 
-const activePath = computed(() => route.path);
+const activePath = computed(() => {
+  if (
+    route.path === '/automation'
+    || route.path === '/connection'
+    || route.path === '/frames'
+    || route.path.startsWith('/frames/editor')
+    || route.path === '/send'
+    || route.path === '/automation/tasks'
+    || route.path === '/automation/command-ingress'
+    || route.path === '/tasks'
+    || route.path === '/command-ingress'
+  ) {
+    return '/automation';
+  }
+
+  if (route.path === '/fpga-rs422') {
+    return '/telemetry-telecommand';
+  }
+
+  return route.path;
+});
 const drawerWidth = readCssPixelToken('--rw-size-app-drawer');
 const drawerBreakpoint = readCssPixelToken('--rw-breakpoint-page-narrow');
 

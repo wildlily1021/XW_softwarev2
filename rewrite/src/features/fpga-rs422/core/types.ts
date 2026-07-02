@@ -12,6 +12,12 @@ export interface FpgaValueOptionDef {
   readonly note?: string;
 }
 
+export interface FpgaTelemetryValueOptionDef {
+  readonly label: string;
+  readonly value: number;
+  readonly note?: string;
+}
+
 export interface FpgaCommandParamDef {
   readonly key: string;
   readonly label: string;
@@ -46,6 +52,7 @@ export interface FpgaTelemetryFieldDef {
   readonly bitWidth: number;
   readonly bitRange?: string;
   readonly signed?: boolean;
+  readonly displayOptions?: readonly FpgaTelemetryValueOptionDef[];
 }
 
 export interface FpgaTelemetryGroupDef {
@@ -109,6 +116,7 @@ export interface FpgaTelemetryFieldExplanation {
   readonly signed?: boolean;
   readonly rawValue?: number;
   readonly wordIndex: number;
+  readonly displayOptions?: readonly FpgaTelemetryValueOptionDef[];
 }
 
 export interface FpgaRs422Issue {

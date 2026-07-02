@@ -32,20 +32,20 @@ describe('fpga rs422 core: catalog coverage', () => {
       'yewu_tx_block',
     ]);
 
-    expect(FPGA_RS422_CATALOG.reduce((sum, moduleDef) => sum + moduleDef.commandGroups.length, 0)).toBe(28);
+    expect(FPGA_RS422_CATALOG.reduce((sum, moduleDef) => sum + moduleDef.commandGroups.length, 0)).toBe(29);
     expect(
       FPGA_RS422_CATALOG.reduce(
         (sum, moduleDef) => sum + moduleDef.commandGroups.reduce((inner, group) => inner + group.params.length, 0),
         0,
       ),
-    ).toBe(51);
+    ).toBe(52);
     expect(FPGA_RS422_CATALOG.reduce((sum, moduleDef) => sum + moduleDef.telemetryGroups.length, 0)).toBe(19);
     expect(
       FPGA_RS422_CATALOG.reduce(
         (sum, moduleDef) => sum + moduleDef.telemetryGroups.reduce((inner, group) => inner + group.fields.length, 0),
         0,
       ),
-    ).toBe(140);
+    ).toBe(156);
   });
 
   it('uses explicit Chinese labels and 20260609 UI metadata for comm_rx commands', () => {
@@ -78,7 +78,7 @@ describe('fpga rs422 core: catalog coverage', () => {
       bitRange: 'word[7:0]',
       defaultValue: 0,
       options: expect.arrayContaining([
-        expect.objectContaining({ label: 'OOK 20M', value: 0x80, note: 'OOK 接收已接入 20M 判决链路' }),
+        expect.objectContaining({ label: 'OOK 20Mbps', value: 0x80, note: 'OOK 接收已接入 20Mbps 判决链路' }),
       ]),
     }));
     expect(mapGroup?.params[1]).toEqual(expect.objectContaining({
@@ -226,36 +226,43 @@ describe('fpga rs422 core: command frame build', () => {
 
 describe('fpga rs422 core: telemetry parse', () => {
   it('parses adc runtime telemetry with checksum and field explanations', () => {
-    const result = parseFpgaTelemetryFrame([
-      0x1a, 0xcf, 0xfc, 0x1d,
-      0x00, 0x00, 0x00, 0x20,
-      0x12, 0x18, 0x00, 0x70,
-      0x00, 0x00, 0x00, 0x01,
-      0x00, 0x00, 0x00, 0x01,
-      0x00, 0x00, 0x00, 0x00,
-      0x00, 0x00, 0x00, 0x00,
-      0x00, 0x00, 0x00, 0x01,
-      0x00, 0x00, 0x00, 0x1f,
-      0x12, 0x34, 0x56, 0x78,
-      0x3f, 0x1c, 0x53, 0x47,
-    ]);
+    const result = parseFpgaTelemetryFrame(buildTelemetryFrame({
+      moduleId: 0x1,
+      groupId: 0x80,
+      words: [
+        0x00000001,
+        0x00000001,
+        0x00000000,
+        0x00000000,
+        0x00000001,
+        0x00000001,
+        0x00000000,
+        0x00000001,
+        0x00000000,
+        0x00000001,
+        0x12345678,
+      ],
+    }));
 
     expect(result.valid).toBe(true);
     expect(result.issues).toEqual([]);
     expect(result.moduleKey).toBe('adc_rx_block');
     expect(result.groupKey).toBe('runtime');
     expect(result.payloadWords).toEqual([
-      0x12180070,
+      0x121800b0,
       0x00000001,
       0x00000001,
       0x00000000,
       0x00000000,
       0x00000001,
-      0x0000001f,
+      0x00000001,
+      0x00000000,
+      0x00000001,
+      0x00000000,
+      0x00000001,
       0x12345678,
     ]);
-    expect(result.checksumExpected).toBe(0x3f1c5347);
-    expect(result.checksumActual).toBe(0x3f1c5347);
+    expect(result.checksumExpected).toBe(result.checksumActual);
     expect(result.fields.map((field) => field.key)).toEqual([
       'reset_status',
       'power_good_status',
@@ -273,7 +280,7 @@ describe('fpga rs422 core: telemetry parse', () => {
       expect.objectContaining({
         key: 'rx_power_value',
         rawValue: 0x12345678,
-        wordIndex: 6,
+        wordIndex: 10,
       }),
     );
   });
@@ -304,7 +311,7 @@ describe('fpga rs422 core: telemetry parse', () => {
   it('splits comm_tx telemetry into runtime/cfg/fault-runtime/fault-cfg groups', () => {
     const commTx = FPGA_RS422_CATALOG.find((moduleDef) => moduleDef.key === 'comm_tx_block');
     expect(commTx?.commandGroups.map((group) => group.key)).toEqual([
-      'COMM_TX_CMD_GROUP_MAP_C',
+      'COMM_TX_CMD_GROUP_CFG_C',
       'COMM_TX_CMD_GROUP_FAULT_C',
       'COMM_TX_CMD_GROUP_PULSE_RESET_C',
       'COMM_TX_CMD_GROUP_PULSE_CLEAR_C',
@@ -327,7 +334,41 @@ describe('fpga rs422 core: telemetry parse', () => {
       'COMM_TX_PARAM_FRAME_COUNT_ERROR_C',
       'COMM_TX_PARAM_ENDIAN_ERROR_C',
       'COMM_TX_PARAM_OPTICAL_SIGNAL_INTERRUPT_C',
+      'COMM_TX_PARAM_FRAME_CONTENT_REPEAT_C',
     ]);
+
+    const faultGroup = commTx?.commandGroups.find((group) => group.key === 'COMM_TX_CMD_GROUP_FAULT_C');
+    expect(faultGroup?.params.find((param) => param.key === 'COMM_TX_PARAM_DATA_LINK_BREAK_C')).toEqual(expect.objectContaining({
+      label: '星间通信数据帧停发检测',
+      uiControl: 'switch',
+      optionCount: 2,
+      options: expect.arrayContaining([
+        expect.objectContaining({
+          label: '星间通信数据帧时停时发',
+          value: 1,
+          note: expect.stringContaining('每 5 s 停发 1 s'),
+        }),
+      ]),
+    }));
+    expect(faultGroup?.params.find((param) => param.key === 'COMM_TX_PARAM_OPTICAL_SIGNAL_INTERRUPT_C')).toEqual(expect.objectContaining({
+      uiControl: 'switch',
+      optionCount: 2,
+    }));
+    expect(faultGroup?.params.find((param) => param.key === 'COMM_TX_PARAM_HEADER_ERROR_C')).toEqual(expect.objectContaining({
+      optionCount: 6,
+      options: expect.arrayContaining([
+        expect.objectContaining({ label: '位反序', value: 5 }),
+      ]),
+    }));
+    expect(faultGroup?.params.find((param) => param.key === 'COMM_TX_PARAM_ENDIAN_ERROR_C')).toEqual(expect.objectContaining({
+      optionCount: 5,
+      options: expect.arrayContaining([
+        expect.objectContaining({ label: 'GT 正序输出', value: 1 }),
+        expect.objectContaining({ label: '帧头位反序', value: 2 }),
+        expect.objectContaining({ label: '数据内容位反序', value: 3 }),
+        expect.objectContaining({ label: '帧头与数据位反序', value: 4 }),
+      ]),
+    }));
   });
 
   it('exposes laser_ctrl scan and unload commands plus trimmed cfg telemetry', () => {
@@ -343,7 +384,7 @@ describe('fpga rs422 core: telemetry parse', () => {
       'LASER_CTRL_CMD_GROUP_FREQ_SCAN_EN_C',
       'LASER_CTRL_CMD_GROUP_FREQ_UNLOAD_EN_C',
     ]);
-    expect(laser?.telemetryGroups.find((group) => group.key === 'runtime')?.fields).toHaveLength(23);
+    expect(laser?.telemetryGroups.find((group) => group.key === 'runtime')?.fields).toHaveLength(36);
     expect(laser?.telemetryGroups.find((group) => group.key === 'cfg')?.fields.map((field) => field.key)).toEqual([
       'txm_on',
       'lo_on',
@@ -357,11 +398,57 @@ describe('fpga rs422 core: telemetry parse', () => {
     ]);
   });
 
+  it('uses the updated biz tx pulse-clear wording from the latest control docs', () => {
+    const bizTx = FPGA_RS422_CATALOG.find((moduleDef) => moduleDef.key === 'yewu_tx_block');
+    expect(bizTx?.commandGroups.find((group) => group.key === 'BIZ_TX_CMD_GROUP_PULSE_CLEAR_C')).toEqual(expect.objectContaining({
+      label: '业务发送计数清零',
+      params: expect.arrayContaining([
+        expect.objectContaining({
+          key: 'BIZ_TX_PARAM_COUNT_CLEAR_C',
+          label: '业务发送计数清零',
+        }),
+      ]),
+    }));
+  });
+
+  it('attaches telemetry display options for key status and enum fields from the latest docs', () => {
+    const adc = FPGA_RS422_CATALOG.find((moduleDef) => moduleDef.key === 'adc_rx_block');
+    const commTx = FPGA_RS422_CATALOG.find((moduleDef) => moduleDef.key === 'comm_tx_block');
+    const laser = FPGA_RS422_CATALOG.find((moduleDef) => moduleDef.key === 'laser_ctrl_block');
+
+    expect(adc?.telemetryGroups.find((group) => group.key === 'runtime')?.fields.find((field) => field.key === 'reset_status'))
+      .toEqual(expect.objectContaining({
+        displayOptions: expect.arrayContaining([
+          expect.objectContaining({ label: '空闲', value: 0 }),
+          expect.objectContaining({ label: '复位中/已接受', value: 1 }),
+        ]),
+      }));
+
+    expect(commTx?.telemetryGroups.find((group) => group.key === 'fault-runtime')?.fields.find((field) => field.key === 'endian_error_inject_status'))
+      .toEqual(expect.objectContaining({
+        displayOptions: expect.arrayContaining([
+          expect.objectContaining({ label: 'GT 正序输出', value: 1 }),
+          expect.objectContaining({ label: '帧头位反序', value: 2 }),
+          expect.objectContaining({ label: '数据内容位反序', value: 3 }),
+          expect.objectContaining({ label: '帧头与数据位反序', value: 4 }),
+        ]),
+      }));
+
+    expect(laser?.telemetryGroups.find((group) => group.key === 'runtime')?.fields.find((field) => field.key === 'freq_scan_state'))
+      .toEqual(expect.objectContaining({
+        displayOptions: expect.arrayContaining([
+          expect.objectContaining({ label: '等待', value: 0 }),
+          expect.objectContaining({ label: '扫频完成', value: 4 }),
+          expect.objectContaining({ label: '手动完成', value: 9 }),
+        ]),
+      }));
+  });
+
   it('parses laser runtime and cfg telemetry from the updated reference frames', () => {
     const runtime = parseFpgaTelemetryFrame(buildZeroTelemetryFrame({
       moduleId: 0x4,
       groupId: 0x80,
-      count: 23,
+      count: 36,
     }));
     const cfg = parseFpgaTelemetryFrame(buildZeroTelemetryFrame({
       moduleId: 0x4,
@@ -372,11 +459,12 @@ describe('fpga rs422 core: telemetry parse', () => {
     expect(runtime.valid).toBe(true);
     expect(runtime.moduleKey).toBe('laser_ctrl_block');
     expect(runtime.groupKey).toBe('runtime');
-    expect(runtime.payloadWords).toHaveLength(24);
-    expect(runtime.fields).toHaveLength(23);
+    expect(runtime.payloadWords).toHaveLength(37);
+    expect(runtime.fields).toHaveLength(36);
     expect(runtime.fields.at(-1)).toEqual(expect.objectContaining({
-      key: 'temp_stable_status_flags',
-      wordIndex: 22,
+      key: 'freq_scan_offset_code',
+      wordIndex: 35,
+      signed: true,
     }));
 
     expect(cfg.valid).toBe(true);
@@ -402,12 +490,12 @@ describe('fpga rs422 core: telemetry parse', () => {
     const faultRuntime = parseFpgaTelemetryFrame(buildZeroTelemetryFrame({
       moduleId: 0x7,
       groupId: 0x90,
-      count: 5,
+      count: 14,
     }));
     const faultCfg = parseFpgaTelemetryFrame(buildZeroTelemetryFrame({
       moduleId: 0x7,
       groupId: 0x91,
-      count: 11,
+      count: 12,
     }));
 
     expect(faultRuntime.valid).toBe(true);
@@ -419,12 +507,14 @@ describe('fpga rs422 core: telemetry parse', () => {
       'data_type_error_inject_status',
       'field_pos_error_inject_status',
       'encode_error_inject_status',
-      'encode_sel_status',
-      'actual_encode_sel_status',
+      'data_link_break_status',
       'frame_fault_scope_status',
       'frame_count_error_inject_status',
       'endian_error_inject_status',
       'optical_signal_interrupt_status',
+      'frame_content_repeat_status',
+      'encode_sel_status',
+      'actual_encode_sel_status',
     ]);
 
     expect(faultCfg.valid).toBe(true);
@@ -441,6 +531,7 @@ describe('fpga rs422 core: telemetry parse', () => {
       'frame_count_error_inject',
       'endian_error_inject',
       'optical_signal_interrupt_inject',
+      'frame_content_repeat_inject',
     ]);
   });
 
@@ -616,27 +707,11 @@ describe('fpga rs422 core: stream frame split', () => {
       false,
       false,
     ]);
-    expect(parsedFrames.filter((frame) => !frame.valid).flatMap((frame) => frame.issues.map((issue) => issue.code))).toEqual([
-      'fpga.payload.missingTelemetryWord',
-      'fpga.payload.missingTelemetryWord',
-      'fpga.payload.missingTelemetryWord',
-      'fpga.payload.missingTelemetryWord',
-      'fpga.payload.missingTelemetryWord',
-      'fpga.payload.missingTelemetryWord',
-      'fpga.payload.missingTelemetryWord',
-      'fpga.payload.missingTelemetryWord',
-      'fpga.payload.missingTelemetryWord',
-      'fpga.payload.missingTelemetryWord',
-      'fpga.payload.missingTelemetryWord',
-      'fpga.payload.missingTelemetryWord',
-      'fpga.payload.missingTelemetryWord',
-      'fpga.payload.missingTelemetryWord',
-      'fpga.payload.missingTelemetryWord',
-      'fpga.payload.missingTelemetryWord',
-      'fpga.payload.missingTelemetryWord',
-      'fpga.payload.missingTelemetryWord',
-      'fpga.payload.missingTelemetryWord',
-    ]);
+    const missingTelemetryIssues = parsedFrames
+      .filter((frame) => !frame.valid)
+      .flatMap((frame) => frame.issues.map((issue) => issue.code));
+    expect(missingTelemetryIssues).toHaveLength(36);
+    expect(missingTelemetryIssues.every((code) => code === 'fpga.payload.missingTelemetryWord')).toBe(true);
     expect(parsedFrames.map((frame) => frame.moduleKey)).toEqual([
       'comm_tx_block',
       'comm_tx_block',

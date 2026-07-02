@@ -8,13 +8,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "quasar dev -m electron",
-    "build": "quasar build -m electron",
-    "build:linux": "quasar build -m electron",
+    "dev": "node ./scripts/run-quasar.cjs dev -m electron",
+    "build": "node ./scripts/run-quasar.cjs build -m electron",
+    "build:linux": "node ./scripts/run-quasar.cjs build -m electron",
     "lint": "eslint -c ./eslint.config.js \"./src/**/*.{ts,vue}\" \"./src-electron/**/*.ts\" \"./test/**/*.ts\" \"./*.config.{ts,js}\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "postinstall": "quasar prepare"
+    "postinstall": "node ./scripts/postinstall.cjs"
   },
   "dependencies": {
     "@quasar/extras": "1.17.0",
@@ -48,12 +48,5 @@
   },
   "engines": {
     "node": ">=22 <23"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@serialport/bindings-cpp",
-      "electron",
-      "esbuild"
-    ]
   }
 }

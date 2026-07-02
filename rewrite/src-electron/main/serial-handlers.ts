@@ -10,7 +10,7 @@ import { storageFilter } from './storage-filter';
 
 const require = createRequire(import.meta.url);
 const { ipcMain } = require('electron') as typeof import('electron');
-const { SerialPort } = require('serialport') as typeof import('serialport');
+const { SerialPort } = require('serialport/dist/serialport') as typeof import('serialport/dist/serialport');
 
 const IPC_ENUMERATE = 'transport:enumerate-serial-ports';
 const IPC_CONNECT = 'transport:serial-connect';

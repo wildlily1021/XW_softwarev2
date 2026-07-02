@@ -1,7 +1,54 @@
 import { defineConfig } from '#q-app/wrappers';
 import UnoCSS from 'unocss/vite';
 import { fileURLToPath, URL } from 'node:url';
+import { createRequire } from 'node:module';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import unoConfig from './uno.config';
+
+const require = createRequire(import.meta.url);
+
+function readInstalledPackageVersion(packageName: string): string {
+  try {
+    const packageJsonPath = require.resolve(`${packageName}/package.json`);
+    return JSON.parse(readFileSync(packageJsonPath, 'utf-8')).version as string;
+  } catch {
+    const resolvedEntry = require.resolve(packageName);
+    let currentDir = dirname(resolvedEntry);
+
+    while (true) {
+      const packageJsonPath = join(currentDir, 'package.json');
+      if (existsSync(packageJsonPath)) {
+        const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf-8')) as {
+          name?: string;
+          version?: string;
+        };
+        if (pkg.name === packageName && typeof pkg.version === 'string') {
+          return pkg.version;
+        }
+      }
+
+      const parentDir = dirname(currentDir);
+      if (parentDir === currentDir) {
+        break;
+      }
+      currentDir = parentDir;
+    }
+  }
+
+  throw new Error(`[quasar.config] Unable to resolve installed version for ${packageName}`);
+}
+
+const pinnedRuntimeDependencies = {
+  echarts: readInstalledPackageVersion('echarts'),
+  nanoid: readInstalledPackageVersion('nanoid'),
+  pinia: readInstalledPackageVersion('pinia'),
+  quasar: readInstalledPackageVersion('quasar'),
+  serialport: readInstalledPackageVersion('serialport'),
+  unocss: readInstalledPackageVersion('unocss'),
+  vue: readInstalledPackageVersion('vue'),
+  'vue-router': readInstalledPackageVersion('vue-router'),
+};
 
 export default defineConfig(() => ({
   boot: [],
@@ -65,6 +112,12 @@ export default defineConfig(() => ({
 
   electron: {
     preloadScripts: ['preload/index'],
+    extendPackageJson(pkg) {
+      pkg.dependencies = {
+        ...(pkg.dependencies ?? {}),
+        ...pinnedRuntimeDependencies,
+      };
+    },
     inspectPort: 5859,
     bundler: 'builder',
     builder: {
@@ -72,7 +125,17 @@ export default defineConfig(() => ({
       productName: '激光链路标准测试设备上位机',
       npmRebuild: false,
       asar: true,
-      asarUnpack: ['**/*.node', '**/@serialport/**'],
+      asarUnpack: ['**/*.node'],
+      win: {
+        signAndEditExecutable: false,
+        verifyUpdateCodeSignature: false,
+        target: [
+          {
+            target: 'dir',
+            arch: ['x64'],
+          },
+        ],
+      },
 
       linux: {
         target: [

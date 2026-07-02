@@ -1,0 +1,5 @@
+allowBuilds:
+  "@parcel/watcher": true
+  "@serialport/bindings-cpp": true
+  electron: true
+  esbuild: true

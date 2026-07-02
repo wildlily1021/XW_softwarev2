@@ -1,0 +1,7 @@
+allowBuilds:
+  '@parcel/watcher': true
+  '@serialport/bindings-cpp': true
+  electron: true
+  esbuild: true
+  lzma-native: true
+  vue-demi: true

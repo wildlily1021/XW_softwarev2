@@ -706,6 +706,7 @@ onMounted(() => {
 
 .fpga-telemetry-page__config {
   grid-template-rows: auto auto auto 1fr auto;
+  overflow: hidden;
 }
 
 .fpga-telemetry-page__result {
@@ -731,9 +732,10 @@ onMounted(() => {
 }
 
 .fpga-serial-panel {
+  align-content: start;
   border: var(--rw-border-width-subtle) solid var(--rw-color-border-subtle);
   border-radius: var(--rw-radius-control);
-  padding: var(--rw-space-3);
+  padding: var(--rw-space-2);
 }
 
 .fpga-serial-panel__header,
@@ -769,15 +771,21 @@ onMounted(() => {
 }
 
 .fpga-serial-card {
+  align-items: start;
   align-content: start;
   background: var(--rw-color-surface-selected);
   border-radius: var(--rw-radius-control);
   display: grid;
-  gap: var(--rw-space-1);
-  padding: var(--rw-space-2);
+  gap: 4px var(--rw-space-3);
+  grid-template-areas:
+    'header actions'
+    'meta actions';
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 10px var(--rw-space-3);
 }
 
 .fpga-serial-card__row {
+  grid-area: header;
   min-width: 0;
 }
 
@@ -804,11 +812,14 @@ onMounted(() => {
 .fpga-serial-card__meta {
   display: flex;
   gap: var(--rw-space-2);
+  grid-area: meta;
 }
 
 .fpga-serial-card__actions {
   display: flex;
+  grid-area: actions;
   justify-content: flex-end;
+  align-self: start;
 }
 
 .fpga-empty-hint {
@@ -820,6 +831,9 @@ onMounted(() => {
 .fpga-config-stack--grow {
   align-content: start;
   min-height: 0;
+  overflow: auto;
+  padding-bottom: var(--rw-space-2);
+  padding-right: 4px;
 }
 
 .fpga-switch-row {

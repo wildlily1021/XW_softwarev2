@@ -8,7 +8,7 @@ import {
   mapFpgaTelemetryFieldRows,
   mapFpgaWordRows,
 } from '../services';
-import type { FpgaTelemetryParseResult } from '../core';
+import type { FpgaTelemetryParseResult, FpgaTelemetryValueOptionDef } from '../core';
 import type { FpgaRs422ConnectionWriter } from '../services';
 
 function createFakeWriter(ok = true): FpgaRs422ConnectionWriter & { writes: { connectionId: string; bytes: readonly number[] }[] } {
@@ -39,10 +39,10 @@ describe('fpga rs422 service helpers', () => {
       value: 'COMM_RX_CMD_GROUP_MAP_C',
     });
     expect(listFpgaCommandGroupOptions('comm_tx_block')).toEqual([
-      { label: '正常工作参数配置', value: 'COMM_TX_CMD_GROUP_MAP_C' },
+      { label: '正常工作参数配置', value: 'COMM_TX_CMD_GROUP_CFG_C' },
       { label: '异常注入参数配置', value: 'COMM_TX_CMD_GROUP_FAULT_C' },
       { label: '发送复位', value: 'COMM_TX_CMD_GROUP_PULSE_RESET_C' },
-      { label: '计数复位', value: 'COMM_TX_CMD_GROUP_PULSE_CLEAR_C' },
+      { label: '业务发送计数清零', value: 'COMM_TX_CMD_GROUP_PULSE_CLEAR_C' },
     ]);
   });
 
@@ -54,11 +54,11 @@ describe('fpga rs422 service helpers', () => {
     expect(getDefaultFpgaCommandParamValues('comm_rx_block', 'COMM_RX_CMD_GROUP_MAP_C')).toEqual({
       COMM_RX_PARAM_RATE_C: 0,
       COMM_RX_PARAM_DECODE_C: 0,
-      COMM_RX_PARAM_DESCRAMBLE_C: 0,
-      COMM_RX_PARAM_FILTER_C: 0,
+      COMM_RX_PARAM_DESCRAMBLE_C: 1,
+      COMM_RX_PARAM_FILTER_C: 1,
       COMM_RX_PARAM_LOOP_BW_C: 0,
-      COMM_RX_PARAM_TIMING_FILTER_C: 0,
-      COMM_RX_PARAM_AUTO_RESET_C: 0,
+      COMM_RX_PARAM_TIMING_FILTER_C: 1,
+      COMM_RX_PARAM_AUTO_RESET_C: 1,
       COMM_RX_PARAM_LOOP_ENABLE_C: 0,
     });
     expect(getDefaultFpgaCommandParamValues('comm_tx_block', 'COMM_TX_CMD_GROUP_FAULT_C')).toEqual({
@@ -73,6 +73,17 @@ describe('fpga rs422 service helpers', () => {
       COMM_TX_PARAM_FRAME_COUNT_ERROR_C: 0,
       COMM_TX_PARAM_ENDIAN_ERROR_C: 0,
       COMM_TX_PARAM_OPTICAL_SIGNAL_INTERRUPT_C: 0,
+      COMM_TX_PARAM_FRAME_CONTENT_REPEAT_C: 0,
+    });
+    expect(getDefaultFpgaCommandParamValues('comm_tx_block', 'COMM_TX_CMD_GROUP_CFG_C')).toEqual({
+      COMM_TX_PARAM_RATE_C: 0,
+      COMM_TX_PARAM_SCRAMBLE_C: 1,
+      COMM_TX_PARAM_ENCODE_C: 0,
+    });
+    expect(getDefaultFpgaCommandParamValues('comm_tx_block', 'COMM_TX_CMD_GROUP_MAP_C')).toEqual({
+      COMM_TX_PARAM_RATE_C: 0,
+      COMM_TX_PARAM_SCRAMBLE_C: 1,
+      COMM_TX_PARAM_ENCODE_C: 0,
     });
   });
 
@@ -155,6 +166,72 @@ describe('fpga rs422 service helpers', () => {
         label: '译码前总比特数',
         value: '4886718345',
         detail: 'word[63:0] / 字段[63:0]',
+      },
+    ]);
+  });
+
+  it('renders telemetry status and enum values with Chinese labels when display options exist', () => {
+    const faultRuntimeResult: FpgaTelemetryParseResult = {
+      valid: true,
+      rawBytes: [],
+      frameWords: [],
+      payloadWords: [],
+      checksumExpected: 0,
+      checksumActual: 0,
+      moduleKey: 'comm_tx_block',
+      groupKey: 'fault-runtime',
+      fields: [
+        createTelemetryFieldWithOptions(
+          'data_link_break_status',
+          '当前星间通信数据帧停发状态',
+          1,
+          6,
+          [
+            { label: '未停发', value: 0, note: '未处于 PPS 停发窗口' },
+            { label: '停发中', value: 1, note: '每 5 s 中的 1 s 停发窗口正在生效' },
+          ],
+        ),
+        createTelemetryFieldWithOptions(
+          'encode_sel_status',
+          '配置编码类型状态',
+          1,
+          12,
+          [
+            { label: 'RS', value: 0 },
+            { label: 'LDPC', value: 1 },
+          ],
+        ),
+        createTelemetryFieldWithOptions(
+          'unknown_status',
+          '未知状态',
+          7,
+          13,
+          [
+            { label: '零态', value: 0 },
+          ],
+        ),
+      ],
+      issues: [],
+    };
+
+    expect(mapFpgaTelemetryFieldRows(faultRuntimeResult)).toEqual([
+      {
+        key: 'data_link_break_status',
+        label: '当前星间通信数据帧停发状态',
+        value: '停发中',
+        detail: 'word 6 路 32 bit · 原始值 1 · 每 5 s 中的 1 s 停发窗口正在生效',
+      },
+      {
+        key: 'encode_sel_status',
+        label: '配置编码类型状态',
+        value: 'LDPC',
+        detail: 'word 12 路 32 bit · 原始值 1',
+      },
+      {
+        key: 'unknown_status',
+        label: '未知状态',
+        value: '7',
+        detail: 'word 13 路 32 bit',
       },
     ]);
   });
@@ -246,5 +323,23 @@ function createTelemetryResult(
       wordIndex: 1,
     }],
     issues: [],
+  };
+}
+
+function createTelemetryFieldWithOptions(
+  key: string,
+  label: string,
+  rawValue: number,
+  wordIndex: number,
+  displayOptions: readonly FpgaTelemetryValueOptionDef[],
+): FpgaTelemetryParseResult['fields'][number] {
+  return {
+    key,
+    label,
+    sourceExpression: key,
+    bitWidth: 32,
+    rawValue,
+    wordIndex,
+    displayOptions,
   };
 }

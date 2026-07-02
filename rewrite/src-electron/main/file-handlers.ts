@@ -13,7 +13,14 @@ const IPC_SHOW_OPEN_DIALOG = 'file:show-open-dialog';
 const IPC_GET_USER_DATA_PATH = 'file:get-user-data-path';
 
 async function handleReadTextFile(_e: Electron.IpcMainInvokeEvent, filePath: string): Promise<string> {
-  return fs.readFile(filePath, 'utf-8');
+  try {
+    return await fs.readFile(filePath, 'utf-8');
+  } catch (err: unknown) {
+    if (isMissingAppStateFile(err, filePath)) {
+      return '';
+    }
+    throw err;
+  }
 }
 
 async function handleWriteTextFile(_e: Electron.IpcMainInvokeEvent, filePath: string, content: string): Promise<void> {
@@ -23,6 +30,15 @@ async function handleWriteTextFile(_e: Electron.IpcMainInvokeEvent, filePath: st
 
 function handleGetUserDataPath(): string {
   return path.join(app.getPath('userData'), 'dongfanghong');
+}
+
+function isMissingAppStateFile(err: unknown, filePath: string): boolean {
+  const code = (err as NodeJS.ErrnoException | undefined)?.code;
+  if (code !== 'ENOENT') return false;
+
+  const stateDir = path.join(app.getPath('userData'), 'dongfanghong', 'state');
+  const relativePath = path.relative(stateDir, filePath);
+  return relativePath !== '' && !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
 }
 
 async function handleShowSaveDialog(e: Electron.IpcMainInvokeEvent, opts: SaveDialogOptions): Promise<string | null> {

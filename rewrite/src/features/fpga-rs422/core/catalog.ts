@@ -7,6 +7,7 @@ import type {
   FpgaTelemetryFieldDef,
   FpgaTelemetryGroupDef,
   FpgaTelemetryGroupKey,
+  FpgaTelemetryValueOptionDef,
   FpgaUiControlKind,
   FpgaValueOptionDef,
 } from './types';
@@ -16,8 +17,13 @@ type CommandParamMetadataInput = Partial<Pick<
   'uiControl' | 'wordIndex' | 'bitRange' | 'signed' | 'options' | 'sourceRefs'
 >>;
 
-export const FPGA_RS422_REGISTRY_VERSION = '20260623v2';
-export const FPGA_RS422_REGISTRY_SOURCE_ROOT = '待做任务/控制与状态系统20260623v2';
+type TelemetryMetadataInput = Partial<Pick<
+  FpgaTelemetryFieldDef,
+  'signed' | 'displayOptions'
+>>;
+
+export const FPGA_RS422_REGISTRY_VERSION = '20260626v1';
+export const FPGA_RS422_REGISTRY_SOURCE_ROOT = '待做任务/控制与状态系统20260626v1';
 
 const moduleLabels: Readonly<Record<string, string>> = {
   adc_rx_block: 'ADC 接收',
@@ -40,10 +46,11 @@ const commandGroupLabels: Readonly<Record<string, string>> = {
   COMM_RX_CMD_GROUP_PULSE_RANGE_RST_C: '测距复位',
   COMM_RX_CMD_GROUP_PULSE_COUNT_CLR_C: '计数复位',
   COMM_RX_CMD_GROUP_PULSE_MANUAL_RST_C: '全体复位',
+  COMM_TX_CMD_GROUP_CFG_C: '正常工作参数配置',
   COMM_TX_CMD_GROUP_MAP_C: '正常工作参数配置',
   COMM_TX_CMD_GROUP_FAULT_C: '异常注入参数配置',
   COMM_TX_CMD_GROUP_PULSE_RESET_C: '发送复位',
-  COMM_TX_CMD_GROUP_PULSE_CLEAR_C: '计数复位',
+  COMM_TX_CMD_GROUP_PULSE_CLEAR_C: '业务发送计数清零',
   CXP_CMD_GROUP_PULSE_RESET_C: '业务复位',
   GT_TX_CMD_GROUP_PULSE_RESET_C: 'GT 复位',
   LASER_CTRL_CMD_GROUP_TXM_ON_C: '发射激光器开关',
@@ -59,7 +66,7 @@ const commandGroupLabels: Readonly<Record<string, string>> = {
   BIZ_RX_CMD_GROUP_PULSE_CLEAR_C: '业务接收计数复位',
   BIZ_RX_CMD_GROUP_PULSE_RESET_C: '业务接收复位',
   BIZ_TX_CMD_GROUP_MAP_C: '业务发送使能配置',
-  BIZ_TX_CMD_GROUP_PULSE_CLEAR_C: '业务发送计数复位',
+  BIZ_TX_CMD_GROUP_PULSE_CLEAR_C: '业务发送计数清零',
   BIZ_TX_CMD_GROUP_PULSE_RESET_C: '业务发送复位',
 };
 
@@ -184,6 +191,7 @@ const COMM_TX_HEADER_ERROR_OPTIONS: readonly FpgaValueOptionDef[] = [
   { label: '中度 4bit', value: 2, note: '帧头中度 4bit 错误' },
   { label: '全反', value: 3, note: '帧头全反' },
   { label: '第 1/3 字节错误', value: 4, note: '帧头第 1/3 字节错误' },
+  { label: '位反序', value: 5, note: '32 bit 位反序' },
 ] as const;
 
 const COMM_TX_DATA_TYPE_ERROR_OPTIONS: readonly FpgaValueOptionDef[] = [
@@ -221,17 +229,25 @@ const COMM_TX_FRAME_COUNT_ERROR_OPTIONS: readonly FpgaValueOptionDef[] = [
 
 const COMM_TX_ENDIAN_ERROR_OPTIONS: readonly FpgaValueOptionDef[] = [
   { label: '不注入', value: 0 },
-  { label: '输入反序后正序化', value: 1, note: 'GT 输入反序数据正序化' },
+  { label: 'GT 正序输出', value: 1, note: '取消 GT 16 bit 反序' },
+  { label: '帧头位反序', value: 2, note: '仅帧头 1ACFFC1D 反序' },
+  { label: '数据内容位反序', value: 3, note: '仅帧头前数据内容按 bit 反序' },
+  { label: '帧头与数据位反序', value: 4, note: '帧头和数据内容同时位反序' },
 ] as const;
 
 const COMM_TX_DATA_LINK_BREAK_OPTIONS: readonly FpgaValueOptionDef[] = [
   { label: '正常', value: 0 },
-  { label: '星间通信数据帧时停时发', value: 1, note: '当前 RTL 将发送数据替换为 5A5A_5A5A' },
+  { label: '星间通信数据帧时停时发', value: 1, note: '由 PPS 1 s 计时器控制，每 5 s 停发 1 s，停发窗内发送 5A5A_5A5A' },
 ] as const;
 
 const COMM_TX_OPTICAL_SIGNAL_INTERRUPT_OPTIONS: readonly FpgaValueOptionDef[] = [
   { label: '正常', value: 0 },
   { label: '星间光信号中断', value: 1, note: '跨到激光控制 40 MHz 域后强制发送激光器 txm_on 选择为 0' },
+] as const;
+
+const COMM_TX_FRAME_CONTENT_REPEAT_OPTIONS: readonly FpgaValueOptionDef[] = [
+  { label: '不注入', value: 0, note: '帧内容重复接口关闭' },
+  { label: '预留使能', value: 1, note: '当前仅保留遥控/遥测接口，尚未接入数据路径' },
 ] as const;
 
 const LASER_TXM_OPTIONS: readonly FpgaValueOptionDef[] = [
@@ -260,6 +276,84 @@ const LASER_MODU_MODE_OPTIONS: readonly FpgaValueOptionDef[] = [
 const LASER_VOL_AUTO_OPTIONS: readonly FpgaValueOptionDef[] = [
   { label: '关闭/禁用', value: 0 },
   { label: '开启/使能', value: 1 },
+] as const;
+
+const BOOL_STATUS_OPTIONS: readonly FpgaTelemetryValueOptionDef[] = [
+  { label: '否', value: 0 },
+  { label: '是', value: 1 },
+] as const;
+
+const RESET_STATUS_OPTIONS: readonly FpgaTelemetryValueOptionDef[] = [
+  { label: '空闲', value: 0, note: '未处于复位请求/忙状态' },
+  { label: '复位中/已接受', value: 1, note: '复位请求已接受或复位忙' },
+] as const;
+
+const NORMAL_STATUS_OPTIONS: readonly FpgaTelemetryValueOptionDef[] = [
+  { label: '异常', value: 0 },
+  { label: '正常', value: 1 },
+] as const;
+
+const LOCK_STATUS_OPTIONS: readonly FpgaTelemetryValueOptionDef[] = [
+  { label: '未锁定', value: 0 },
+  { label: '锁定', value: 1 },
+] as const;
+
+const LOCK_LOSS_STATUS_OPTIONS: readonly FpgaTelemetryValueOptionDef[] = [
+  { label: '失锁', value: 0 },
+  { label: '锁定', value: 1 },
+] as const;
+
+const VALID_STATUS_OPTIONS: readonly FpgaTelemetryValueOptionDef[] = [
+  { label: '无效', value: 0 },
+  { label: '有效', value: 1 },
+] as const;
+
+const READY_STATUS_OPTIONS: readonly FpgaTelemetryValueOptionDef[] = [
+  { label: '未就绪', value: 0 },
+  { label: '就绪', value: 1 },
+] as const;
+
+const DONE_STATUS_OPTIONS: readonly FpgaTelemetryValueOptionDef[] = [
+  { label: '未完成', value: 0 },
+  { label: '完成', value: 1 },
+] as const;
+
+const POWER_STATUS_OPTIONS: readonly FpgaTelemetryValueOptionDef[] = [
+  { label: '未上电', value: 0 },
+  { label: '已上电', value: 1 },
+] as const;
+
+const ENABLE_STATUS_OPTIONS: readonly FpgaTelemetryValueOptionDef[] = [
+  { label: '未使能', value: 0 },
+  { label: '使能', value: 1 },
+] as const;
+
+const CLOCK_SOURCE_STATUS_OPTIONS: readonly FpgaTelemetryValueOptionDef[] = [
+  { label: '内参考', value: 0 },
+  { label: '外参考', value: 1 },
+] as const;
+
+const LASER_FREQ_SCAN_STATE_OPTIONS: readonly FpgaTelemetryValueOptionDef[] = [
+  { label: '等待', value: 0 },
+  { label: '扫频初始化', value: 1 },
+  { label: '频率搜索', value: 2 },
+  { label: '频率确定', value: 3 },
+  { label: '扫频完成', value: 4 },
+  { label: '卸载初始化', value: 5 },
+  { label: '卸载跟踪', value: 6 },
+  { label: '手动初始化', value: 7 },
+  { label: '手动移动', value: 8 },
+  { label: '手动完成', value: 9 },
+] as const;
+
+const LASER_LAST_FAULT_REASON_OPTIONS: readonly FpgaTelemetryValueOptionDef[] = [
+  { label: '无故障', value: 0x00 },
+  { label: '参数包基准未就绪', value: 0x01 },
+  { label: '扫频完成/卸载阶段失锁', value: 0x02 },
+  { label: '温度未稳定', value: 0x03 },
+  { label: '非法边界预留', value: 0x04 },
+  { label: '激光器选择变化', value: 0x05 },
+  { label: '请求时帧同步未锁定', value: 0x06 },
 ] as const;
 
 
@@ -317,9 +411,12 @@ function tm(
   key: string,
   label: string,
   bitRange: string,
-  signed = false,
+  signedOrMetadata: boolean | TelemetryMetadataInput = false,
   sourceExpression = key,
 ): FpgaTelemetryFieldDef {
+  const metadata = typeof signedOrMetadata === 'boolean'
+    ? { signed: signedOrMetadata }
+    : signedOrMetadata;
   return {
     wordIndex,
     key,
@@ -327,7 +424,8 @@ function tm(
     sourceExpression,
     bitWidth: inferBitWidthFromBitRange(bitRange),
     bitRange,
-    signed,
+    signed: metadata.signed,
+    ...(metadata.displayOptions ? { displayOptions: metadata.displayOptions } : {}),
   };
 }
 
@@ -360,6 +458,13 @@ function m(
   return { key, label: moduleLabels[key] ?? key, moduleId, commandGroups, telemetryGroups, ...(sourceRefs ? { sourceRefs } : {}) };
 }
 
+export function resolveFpgaCommandGroupKey(moduleKey: string, groupKey: string): string {
+  if (moduleKey === 'comm_tx_block' && groupKey === 'COMM_TX_CMD_GROUP_MAP_C') {
+    return 'COMM_TX_CMD_GROUP_CFG_C';
+  }
+  return groupKey;
+}
+
 function inferBitWidthFromBitRange(bitRange: string): number {
   const rangeMatch = /^word\[(\d+):(\d+)\]/.exec(bitRange);
   if (rangeMatch) {
@@ -383,20 +488,20 @@ export const FPGA_RS422_CATALOG: readonly FpgaRs422ModuleCatalog[] = [
     ]),
   ], [
     tg('runtime', 0x80, [
-      tm(0, 'reset_status', 'ADC 复位状态', 'word[0]', false, 'bool_to_u32(stat_i.reset_status)'),
-      tm(1, 'power_good_status', '时钟/电源正常状态', 'word[0]', false, 'bool_to_u32(stat_i.power_good_status)'),
-      tm(2, 'lmx_locked_status', 'LMX 锁定状态', 'word[0]', false, 'bool_to_u32(stat_i.lmx_locked_status)'),
-      tm(3, 'lmk_locked_status', 'LMK 锁定状态', 'word[0]', false, 'bool_to_u32(stat_i.lmk_locked_status)'),
-      tm(4, 'data_valid_status', '数据有效状态', 'word[0]', false, 'bool_to_u32(stat_i.data_valid_status)'),
-      tm(5, 'board_status[4]', 'LMX1', 'word[4]', false, 'stat_i.board_status[4]'),
-      tm(5, 'board_status[3]', 'LMK12', 'word[3]', false, 'stat_i.board_status[3]'),
-      tm(5, 'board_status[2]', 'SPI完成', 'word[2]', false, 'stat_i.board_status[2]'),
-      tm(5, 'board_status[1]', '采样有效', 'word[1]', false, 'stat_i.board_status[1]'),
-      tm(5, 'board_status[0]', 'ADC上电', 'word[0]', false, 'stat_i.board_status[0]'),
-      tm(6, 'rx_power_value', '接收功率测量值', 'word[31:0]', false, 'stat_i.rx_power_value'),
+      tm(0, 'reset_status', 'ADC 复位状态', 'word[0]', { displayOptions: RESET_STATUS_OPTIONS }, 'bool_to_u32(stat_i.reset_status)'),
+      tm(1, 'power_good_status', '时钟/电源正常状态', 'word[0]', { displayOptions: NORMAL_STATUS_OPTIONS }, 'bool_to_u32(stat_i.power_good_status)'),
+      tm(2, 'lmx_locked_status', 'LMX 锁定状态', 'word[0]', { displayOptions: LOCK_STATUS_OPTIONS }, 'bool_to_u32(stat_i.lmx_locked_status)'),
+      tm(3, 'lmk_locked_status', 'LMK 锁定状态', 'word[0]', { displayOptions: LOCK_STATUS_OPTIONS }, 'bool_to_u32(stat_i.lmk_locked_status)'),
+      tm(4, 'data_valid_status', '数据有效状态', 'word[0]', { displayOptions: VALID_STATUS_OPTIONS }, 'bool_to_u32(stat_i.data_valid_status)'),
+      tm(5, 'board_status[4]', 'LMX1', 'word[0]', { displayOptions: READY_STATUS_OPTIONS }, 'bool_to_u32(stat_i.board_status[4])'),
+      tm(6, 'board_status[3]', 'LMK12', 'word[0]', { displayOptions: READY_STATUS_OPTIONS }, 'bool_to_u32(stat_i.board_status[3])'),
+      tm(7, 'board_status[2]', 'SPI完成', 'word[0]', { displayOptions: DONE_STATUS_OPTIONS }, 'bool_to_u32(stat_i.board_status[2])'),
+      tm(8, 'board_status[1]', '采样有效', 'word[0]', { displayOptions: VALID_STATUS_OPTIONS }, 'bool_to_u32(stat_i.board_status[1])'),
+      tm(9, 'board_status[0]', 'ADC上电', 'word[0]', { displayOptions: POWER_STATUS_OPTIONS }, 'bool_to_u32(stat_i.board_status[0])'),
+      tm(10, 'rx_power_value', '接收功率测量值', 'word[31:0]', false, 'stat_i.rx_power_value'),
     ]),
     tg('cfg', 0x81, [
-      tm(0, 'cal_loop_enable', 'ADC 校准环路使能配置', 'word[0]', false, 'bool_to_u32(cfg_i.cal_loop_enable)'),
+      tm(0, 'cal_loop_enable', 'ADC 校准环路使能配置', 'word[0]', { displayOptions: ENABLE_STATUS_OPTIONS }, 'bool_to_u32(cfg_i.cal_loop_enable)'),
     ]),
   ]),
   m('clock_manager_block', 0, [
@@ -406,24 +511,24 @@ export const FPGA_RS422_CATALOG: readonly FpgaRs422ModuleCatalog[] = [
     ]),
   ], [
     tg('runtime', 0x80, [
-      tm(0, 'clock_lock_status[2]', 'lmk100M锁定', 'word[2]', false, 'stat_i.clock_lock_status[2]'),
-      tm(0, 'clock_lock_status[1]', 'adc数据时钟锁定', 'word[1]', false, 'stat_i.clock_lock_status[1]'),
-      tm(0, 'clock_lock_status[0]', 'adc核时钟锁定', 'word[0]', false, 'stat_i.clock_lock_status[0]'),
+      tm(0, 'clock_lock_status[2]', 'lmk100M锁定', 'word[0]', { displayOptions: LOCK_STATUS_OPTIONS }, 'bool_to_u32(stat_i.clock_lock_status[2])'),
+      tm(1, 'clock_lock_status[1]', 'adc数据时钟锁定', 'word[0]', { displayOptions: LOCK_STATUS_OPTIONS }, 'bool_to_u32(stat_i.clock_lock_status[1])'),
+      tm(2, 'clock_lock_status[0]', 'adc核时钟锁定', 'word[0]', { displayOptions: LOCK_STATUS_OPTIONS }, 'bool_to_u32(stat_i.clock_lock_status[0])'),
     ]),
     tg('cfg', 0x81, [
-      tm(0, 'pps_source_sel', 'PPS 来源选择', 'word[0]', false, 'bool_to_u32(cfg_i.pps_source_sel)'),
-      tm(1, 'ref_source_sel', '参考时钟来源选择', 'word[0]', false, 'bool_to_u32(cfg_i.ref_source_sel)'),
+      tm(0, 'pps_source_sel', 'PPS 来源选择', 'word[0]', { displayOptions: CLOCK_SOURCE_STATUS_OPTIONS }, 'bool_to_u32(cfg_i.pps_source_sel)'),
+      tm(1, 'ref_source_sel', '参考时钟来源选择', 'word[0]', { displayOptions: CLOCK_SOURCE_STATUS_OPTIONS }, 'bool_to_u32(cfg_i.ref_source_sel)'),
     ]),
   ]),
   m('comm_rx_block', 8, [
     cg('COMM_RX_CMD_GROUP_MAP_C', 0x10, [
       p('COMM_RX_PARAM_RATE_C', '接收链路速率选择', 0, 'value', 1, 32, 8, 8, 0, cm('select', 0, 'word[7:0]', RX_RATE_OPTIONS, commRxCommandSourceRefs)),
       p('COMM_RX_PARAM_DECODE_C', '解码选择，0=RS，1=LDPC', 1, 'value', 1, 32, 1, 2, 0, cm('select', 1, 'word[0]', RX_DECODE_OPTIONS, commRxCommandSourceRefs)),
-      p('COMM_RX_PARAM_DESCRAMBLE_C', '接收解扰使能', 2, 'value', 1, 32, 1, 2, 0, cm('switch', 2, 'word[0]', ENABLE_OPTIONS, commRxCommandSourceRefs)),
-      p('COMM_RX_PARAM_FILTER_C', '载波滤波使能', 3, 'value', 1, 32, 1, 2, 0, cm('switch', 3, 'word[0]', ENABLE_OPTIONS, commRxCommandSourceRefs)),
+      p('COMM_RX_PARAM_DESCRAMBLE_C', '接收解扰使能', 2, 'value', 1, 32, 1, 2, 1, cm('switch', 2, 'word[0]', ENABLE_OPTIONS, commRxCommandSourceRefs)),
+      p('COMM_RX_PARAM_FILTER_C', '载波滤波使能', 3, 'value', 1, 32, 1, 2, 1, cm('switch', 3, 'word[0]', ENABLE_OPTIONS, commRxCommandSourceRefs)),
       p('COMM_RX_PARAM_LOOP_BW_C', '定时环路带宽选择', 4, 'value', 1, 32, 3, 8, 0, cm('select', 4, 'word[2:0]', LOOP_BW_OPTIONS, commRxCommandSourceRefs)),
-      p('COMM_RX_PARAM_TIMING_FILTER_C', '定时滤波使能', 5, 'value', 1, 32, 1, 2, 0, cm('switch', 5, 'word[0]', ENABLE_OPTIONS, commRxCommandSourceRefs)),
-      p('COMM_RX_PARAM_AUTO_RESET_C', '自动复位使能', 6, 'value', 1, 32, 1, 2, 0, cm('switch', 6, 'word[0]', ENABLE_OPTIONS, commRxCommandSourceRefs)),
+      p('COMM_RX_PARAM_TIMING_FILTER_C', '定时滤波使能', 5, 'value', 1, 32, 1, 2, 1, cm('switch', 5, 'word[0]', ENABLE_OPTIONS, commRxCommandSourceRefs)),
+      p('COMM_RX_PARAM_AUTO_RESET_C', '自动复位使能', 6, 'value', 1, 32, 1, 2, 1, cm('switch', 6, 'word[0]', ENABLE_OPTIONS, commRxCommandSourceRefs)),
       p('COMM_RX_PARAM_LOOP_ENABLE_C', '接收链路环回使能', 0xd, 'value', 1, 32, 1, 2, 0, cm('switch', 7, 'word[0]', ENABLE_OPTIONS, commRxCommandSourceRefs)),
     ]),
     cg('COMM_RX_CMD_GROUP_VALUE_C', 0x11, [
@@ -444,9 +549,9 @@ export const FPGA_RS422_CATALOG: readonly FpgaRs422ModuleCatalog[] = [
     tg('runtime', 0x80, [
       tm(0, 'signal_power', '接收信号功率测量值', 'word[15:0]', false, "{16'h0000, stat_i.signal_power}"),
       tm(1, 'carrier_freq_offset_est', '载波频偏粗估计值', 'word[31:0]', true, 'stat_i.carrier_freq_offset_est'),
-      tm(2, 'carrier_lock_state', '载波锁定状态', 'word[0]', false, 'bool_to_u32(stat_i.carrier_lock_state)'),
-      tm(3, 'symbol_lock_state', '符号锁定状态', 'word[0]', false, 'bool_to_u32(stat_i.symbol_lock_state)'),
-      tm(4, 'frame_lock_state', '帧锁定状态', 'word[0]', false, 'bool_to_u32(stat_i.frame_lock_state)'),
+      tm(2, 'carrier_lock_state', '载波锁定状态', 'word[0]', { displayOptions: LOCK_LOSS_STATUS_OPTIONS }, 'bool_to_u32(stat_i.carrier_lock_state)'),
+      tm(3, 'symbol_lock_state', '符号锁定状态', 'word[0]', { displayOptions: LOCK_LOSS_STATUS_OPTIONS }, 'bool_to_u32(stat_i.symbol_lock_state)'),
+      tm(4, 'frame_lock_state', '帧锁定状态', 'word[0]', { displayOptions: LOCK_LOSS_STATUS_OPTIONS }, 'bool_to_u32(stat_i.frame_lock_state)'),
       tm(5, 'frame_count_sec', '秒内帧总计数', 'word[31:0]', false, 'stat_i.frame_count_sec'),
       tm(6, 'error_frame_count_sec', '秒内错误帧计数', 'word[31:0]', false, 'stat_i.error_frame_count_sec'),
       tm(7, 'air_frame_count_sec', '秒内空口帧计数', 'word[31:0]', false, 'stat_i.air_frame_count_sec'),
@@ -494,7 +599,7 @@ export const FPGA_RS422_CATALOG: readonly FpgaRs422ModuleCatalog[] = [
     ]),
   ]),
   m('comm_tx_block', 7, [
-    cg('COMM_TX_CMD_GROUP_MAP_C', 0x10, [
+    cg('COMM_TX_CMD_GROUP_CFG_C', 0x10, [
       p('COMM_TX_PARAM_RATE_C', '发送速率选择', 0, 'value', 1, 32, 8, 8, 0, cm('select', 0, 'word[7:0]', TX_RATE_OPTIONS)),
       p('COMM_TX_PARAM_SCRAMBLE_C', '扰码使能', 1, 'value', 1, 32, 1, 2, 1, cm('switch', 1, 'word[0]', ENABLE_OPTIONS)),
       p('COMM_TX_PARAM_ENCODE_C', '编码类型选择', 2, 'value', 1, 32, 1, 2, 0, cm('select', 2, 'word[0]', TX_ENCODE_OPTIONS)),
@@ -502,21 +607,22 @@ export const FPGA_RS422_CATALOG: readonly FpgaRs422ModuleCatalog[] = [
     cg('COMM_TX_CMD_GROUP_FAULT_C', 0x11, [
       p('COMM_TX_PARAM_BER_INJECT_C', '空口通信误码注入', 3, 'value', 1, 32, 4, 10, 0, cm('select', 0, 'word[3:0]', COMM_TX_BER_INJECT_OPTIONS)),
       p('COMM_TX_PARAM_CRC_ERROR_C', 'CRC 故障注入控制', 4, 'value', 1, 32, 4, 2, 0, cm('select', 1, 'word[3:0]', COMM_TX_CRC_ERROR_OPTIONS)),
-      p('COMM_TX_PARAM_HEADER_ERROR_C', '帧头故障注入控制', 5, 'value', 1, 32, 4, 5, 0, cm('select', 2, 'word[3:0]', COMM_TX_HEADER_ERROR_OPTIONS)),
+      p('COMM_TX_PARAM_HEADER_ERROR_C', '帧头故障注入控制', 5, 'value', 1, 32, 4, 6, 0, cm('select', 2, 'word[3:0]', COMM_TX_HEADER_ERROR_OPTIONS)),
       p('COMM_TX_PARAM_DATA_TYPE_ERROR_C', '数据类型故障注入控制', 6, 'value', 1, 32, 4, 2, 0, cm('select', 3, 'word[3:0]', COMM_TX_DATA_TYPE_ERROR_OPTIONS)),
       p('COMM_TX_PARAM_FIELD_POS_ERROR_C', '字段位置故障注入控制', 7, 'value', 1, 32, 4, 2, 0, cm('select', 4, 'word[3:0]', COMM_TX_FIELD_POS_ERROR_OPTIONS)),
       p('COMM_TX_PARAM_ENCODE_ERROR_C', '编码故障注入控制', 8, 'value', 1, 32, 4, 4, 0, cm('select', 5, 'word[3:0]', COMM_TX_ENCODE_ERROR_OPTIONS)),
       p('COMM_TX_PARAM_DATA_LINK_BREAK_C', '星间通信数据帧停发检测', 9, 'value', 1, 32, 1, 2, 0, cm('switch', 6, 'word[0]', COMM_TX_DATA_LINK_BREAK_OPTIONS)),
       p('COMM_TX_PARAM_FRAME_FAULT_SCOPE_C', '帧类故障生效范围', 10, 'value', 1, 32, 4, 6, 0, cm('select', 7, 'word[3:0]', COMM_TX_FRAME_FAULT_SCOPE_OPTIONS)),
       p('COMM_TX_PARAM_FRAME_COUNT_ERROR_C', '帧计数故障注入控制', 11, 'value', 1, 32, 4, 4, 0, cm('select', 8, 'word[3:0]', COMM_TX_FRAME_COUNT_ERROR_OPTIONS)),
-      p('COMM_TX_PARAM_ENDIAN_ERROR_C', '数据域大小端错误', 12, 'value', 1, 32, 4, 2, 0, cm('select', 9, 'word[3:0]', COMM_TX_ENDIAN_ERROR_OPTIONS)),
+      p('COMM_TX_PARAM_ENDIAN_ERROR_C', '数据域大小端错误', 12, 'value', 1, 32, 4, 5, 0, cm('select', 9, 'word[3:0]', COMM_TX_ENDIAN_ERROR_OPTIONS)),
       p('COMM_TX_PARAM_OPTICAL_SIGNAL_INTERRUPT_C', '星间光信号中断', 13, 'value', 1, 32, 1, 2, 0, cm('switch', 10, 'word[0]', COMM_TX_OPTICAL_SIGNAL_INTERRUPT_OPTIONS)),
+      p('COMM_TX_PARAM_FRAME_CONTENT_REPEAT_C', '帧内容重复', 16, 'value', 1, 32, 4, 2, 0, cm('select', 11, 'word[3:0]', COMM_TX_FRAME_CONTENT_REPEAT_OPTIONS)),
     ]),
     cg('COMM_TX_CMD_GROUP_PULSE_RESET_C', 0x12, [
       p('COMM_TX_PARAM_RESET_C', '发送复位', 14, 'pulse', 0, 0, 1, 0, undefined, pulseMeta()),
     ]),
     cg('COMM_TX_CMD_GROUP_PULSE_CLEAR_C', 0x13, [
-      p('COMM_TX_PARAM_COUNT_CLEAR_C', '计数复位', 15, 'pulse', 0, 0, 1, 0, undefined, pulseMeta()),
+      p('COMM_TX_PARAM_COUNT_CLEAR_C', '业务发送计数清零', 15, 'pulse', 0, 0, 1, 0, undefined, pulseMeta()),
     ]),
   ], [
     tg('runtime', 0x80, [
@@ -526,36 +632,39 @@ export const FPGA_RS422_CATALOG: readonly FpgaRs422ModuleCatalog[] = [
       tm(3, 'reset_status', '复位状态', 'word[0]', false, 'bool_to_u32(stat_i.reset_status)'),
     ]),
     tg('cfg', 0x81, [
-      tm(0, 'rate_sel', '发送速率选择', 'word[7:0]', false, "{24'h000000, cfg_i.rate_sel}"),
-      tm(1, 'scramble_enable', '扰码使能', 'word[0]', false, 'bool_to_u32(cfg_i.scramble_enable)'),
-      tm(2, 'encode_sel', '编码类型选择', 'word[0]', false, 'bool_to_u32(cfg_i.encode_sel)'),
+      tm(0, 'rate_sel', '发送速率选择', 'word[7:0]', { displayOptions: TX_RATE_OPTIONS }, "{24'h000000, cfg_i.rate_sel}"),
+      tm(1, 'scramble_enable', '扰码使能', 'word[0]', { displayOptions: ENABLE_STATUS_OPTIONS }, 'bool_to_u32(cfg_i.scramble_enable)'),
+      tm(2, 'encode_sel', '编码类型选择', 'word[0]', { displayOptions: TX_ENCODE_OPTIONS }, 'bool_to_u32(cfg_i.encode_sel)'),
     ]),
     tg('fault-runtime', 0x90, [
-      tm(0, 'ber_inject_mode_status', '当前空口通信误码注入状态', 'word[3:0]', false, "{28'h0000_000, stat_i.ber_inject_mode_status}"),
-      tm(1, 'crc_error_inject_status', '当前 CRC 故障注入状态', 'word[15:12]', false, 'stat_i.crc_error_inject_status'),
-      tm(1, 'header_error_inject_status', '当前帧头故障注入状态', 'word[11:8]', false, 'stat_i.header_error_inject_status'),
-      tm(1, 'data_type_error_inject_status', '当前数据类型故障注入状态', 'word[7:4]', false, 'stat_i.data_type_error_inject_status'),
-      tm(1, 'field_pos_error_inject_status', '当前字段位置故障注入状态', 'word[3:0]', false, 'stat_i.field_pos_error_inject_status'),
-      tm(2, 'encode_error_inject_status', '当前编码故障注入状态', 'word[7:4]', false, 'stat_i.encode_error_inject_status'),
-      tm(2, 'encode_sel_status', '配置编码类型状态', 'word[3:0]', false, 'stat_i.encode_sel_status'),
-      tm(3, 'actual_encode_sel_status', '实际编码类型状态', 'word[15:12]', false, 'stat_i.actual_encode_sel_status'),
-      tm(3, 'frame_fault_scope_status', '当前帧类故障生效范围状态', 'word[11:8]', false, 'stat_i.frame_fault_scope_status'),
-      tm(3, 'frame_count_error_inject_status', '当前帧计数故障注入状态', 'word[7:4]', false, 'stat_i.frame_count_error_inject_status'),
-      tm(3, 'endian_error_inject_status', '当前字节序故障注入状态', 'word[3:0]', false, 'stat_i.endian_error_inject_status'),
-      tm(4, 'optical_signal_interrupt_status', '当前星间光信号中断状态', 'word[0]', false, 'bool_to_u32(stat_i.optical_signal_interrupt_status)'),
+      tm(0, 'ber_inject_mode_status', '当前空口通信误码注入状态', 'word[3:0]', { displayOptions: COMM_TX_BER_INJECT_OPTIONS }, "{28'h0000_000, stat_i.ber_inject_mode_status}"),
+      tm(1, 'crc_error_inject_status', '当前 CRC 故障注入状态', 'word[3:0]', { displayOptions: COMM_TX_CRC_ERROR_OPTIONS }, "{28'h0000_000, stat_i.crc_error_inject_status}"),
+      tm(2, 'header_error_inject_status', '当前帧头故障注入状态', 'word[3:0]', { displayOptions: COMM_TX_HEADER_ERROR_OPTIONS }, "{28'h0000_000, stat_i.header_error_inject_status}"),
+      tm(3, 'data_type_error_inject_status', '当前数据类型故障注入状态', 'word[3:0]', { displayOptions: COMM_TX_DATA_TYPE_ERROR_OPTIONS }, "{28'h0000_000, stat_i.data_type_error_inject_status}"),
+      tm(4, 'field_pos_error_inject_status', '当前字段位置故障注入状态', 'word[3:0]', { displayOptions: COMM_TX_FIELD_POS_ERROR_OPTIONS }, "{28'h0000_000, stat_i.field_pos_error_inject_status}"),
+      tm(5, 'encode_error_inject_status', '当前编码故障注入状态', 'word[3:0]', { displayOptions: COMM_TX_ENCODE_ERROR_OPTIONS }, "{28'h0000_000, stat_i.encode_error_inject_status}"),
+      tm(6, 'data_link_break_status', '当前星间通信数据帧停发状态', 'word[0]', { displayOptions: [{ label: '未停发', value: 0, note: '未处于 PPS 停发窗口' }, { label: '停发中', value: 1, note: '每 5 s 中的 1 s 停发窗口正在生效' }] }, 'bool_to_u32(stat_i.data_link_break_status)'),
+      tm(7, 'frame_fault_scope_status', '当前帧类故障生效范围状态', 'word[3:0]', { displayOptions: COMM_TX_FRAME_FAULT_SCOPE_OPTIONS }, "{28'h0000_000, stat_i.frame_fault_scope_status}"),
+      tm(8, 'frame_count_error_inject_status', '当前帧计数故障注入状态', 'word[3:0]', { displayOptions: COMM_TX_FRAME_COUNT_ERROR_OPTIONS }, "{28'h0000_000, stat_i.frame_count_error_inject_status}"),
+      tm(9, 'endian_error_inject_status', '当前字节序故障注入状态', 'word[3:0]', { displayOptions: COMM_TX_ENDIAN_ERROR_OPTIONS }, "{28'h0000_000, stat_i.endian_error_inject_status}"),
+      tm(10, 'optical_signal_interrupt_status', '当前星间光信号中断状态', 'word[0]', { displayOptions: COMM_TX_OPTICAL_SIGNAL_INTERRUPT_OPTIONS }, 'bool_to_u32(stat_i.optical_signal_interrupt_status)'),
+      tm(11, 'frame_content_repeat_status', '当前帧内容重复状态', 'word[3:0]', { displayOptions: [{ label: '未启用', value: 0, note: '帧内容重复接口未启用' }, { label: '预留/镜像', value: 1, note: '当前仅镜像遥控配置字' }] }, "{28'h0000_000, stat_i.frame_content_repeat_status}"),
+      tm(12, 'encode_sel_status', '配置编码类型状态', 'word[3:0]', { displayOptions: TX_ENCODE_OPTIONS }, "{28'h0000_000, stat_i.encode_sel_status}"),
+      tm(13, 'actual_encode_sel_status', '实际编码类型状态', 'word[3:0]', { displayOptions: TX_ENCODE_OPTIONS }, "{28'h0000_000, stat_i.actual_encode_sel_status}"),
     ]),
     tg('fault-cfg', 0x91, [
-      tm(0, 'ber_inject_mode', '空口通信误码注入', 'word[3:0]', false, "{28'h0000_000, cfg_i.ber_inject_mode}"),
-      tm(1, 'crc_error_inject', 'CRC 故障注入控制', 'word[3:0]', false, "{28'h0000_000, cfg_i.crc_error_inject}"),
-      tm(2, 'header_error_inject', '帧头故障注入控制', 'word[3:0]', false, "{28'h0000_000, cfg_i.header_error_inject}"),
-      tm(3, 'data_type_error_inject', '数据类型故障注入控制', 'word[3:0]', false, "{28'h0000_000, cfg_i.data_type_error_inject}"),
-      tm(4, 'field_pos_error_inject', '字段位置故障注入控制', 'word[3:0]', false, "{28'h0000_000, cfg_i.field_pos_error_inject}"),
-      tm(5, 'encode_error_inject', '编码故障注入控制', 'word[3:0]', false, "{28'h0000_000, cfg_i.encode_error_inject}"),
-      tm(6, 'data_link_break_inject', '星间通信数据帧停发检测', 'word[0]', false, 'bool_to_u32(cfg_i.data_link_break_inject)'),
-      tm(7, 'frame_fault_scope', '帧类故障生效范围', 'word[3:0]', false, "{28'h0000_000, cfg_i.frame_fault_scope}"),
-      tm(8, 'frame_count_error_inject', '帧计数故障注入控制', 'word[3:0]', false, "{28'h0000_000, cfg_i.frame_count_error_inject}"),
-      tm(9, 'endian_error_inject', '数据域大小端错误', 'word[3:0]', false, "{28'h0000_000, cfg_i.endian_error_inject}"),
-      tm(10, 'optical_signal_interrupt_inject', '星间光信号中断检测', 'word[0]', false, 'bool_to_u32(cfg_i.optical_signal_interrupt_inject)'),
+      tm(0, 'ber_inject_mode', '空口通信误码注入', 'word[3:0]', { displayOptions: COMM_TX_BER_INJECT_OPTIONS }, "{28'h0000_000, cfg_i.ber_inject_mode}"),
+      tm(1, 'crc_error_inject', 'CRC 故障注入控制', 'word[3:0]', { displayOptions: COMM_TX_CRC_ERROR_OPTIONS }, "{28'h0000_000, cfg_i.crc_error_inject}"),
+      tm(2, 'header_error_inject', '帧头故障注入控制', 'word[3:0]', { displayOptions: COMM_TX_HEADER_ERROR_OPTIONS }, "{28'h0000_000, cfg_i.header_error_inject}"),
+      tm(3, 'data_type_error_inject', '数据类型故障注入控制', 'word[3:0]', { displayOptions: COMM_TX_DATA_TYPE_ERROR_OPTIONS }, "{28'h0000_000, cfg_i.data_type_error_inject}"),
+      tm(4, 'field_pos_error_inject', '字段位置故障注入控制', 'word[3:0]', { displayOptions: COMM_TX_FIELD_POS_ERROR_OPTIONS }, "{28'h0000_000, cfg_i.field_pos_error_inject}"),
+      tm(5, 'encode_error_inject', '编码故障注入控制', 'word[3:0]', { displayOptions: COMM_TX_ENCODE_ERROR_OPTIONS }, "{28'h0000_000, cfg_i.encode_error_inject}"),
+      tm(6, 'data_link_break_inject', '星间通信数据帧停发检测', 'word[0]', { displayOptions: COMM_TX_DATA_LINK_BREAK_OPTIONS }, 'bool_to_u32(cfg_i.data_link_break_inject)'),
+      tm(7, 'frame_fault_scope', '帧类故障生效范围', 'word[3:0]', { displayOptions: COMM_TX_FRAME_FAULT_SCOPE_OPTIONS }, "{28'h0000_000, cfg_i.frame_fault_scope}"),
+      tm(8, 'frame_count_error_inject', '帧计数故障注入控制', 'word[3:0]', { displayOptions: COMM_TX_FRAME_COUNT_ERROR_OPTIONS }, "{28'h0000_000, cfg_i.frame_count_error_inject}"),
+      tm(9, 'endian_error_inject', '数据域大小端错误', 'word[3:0]', { displayOptions: COMM_TX_ENDIAN_ERROR_OPTIONS }, "{28'h0000_000, cfg_i.endian_error_inject}"),
+      tm(10, 'optical_signal_interrupt_inject', '星间光信号中断检测', 'word[0]', { displayOptions: COMM_TX_OPTICAL_SIGNAL_INTERRUPT_OPTIONS }, 'bool_to_u32(cfg_i.optical_signal_interrupt_inject)'),
+      tm(11, 'frame_content_repeat_inject', '帧内容重复配置', 'word[3:0]', { displayOptions: [{ label: '未启用', value: 0, note: '帧内容重复接口未启用' }, { label: '预留/镜像', value: 1, note: '当前仅保留遥控/遥测接口，尚未接入数据路径' }] }, "{28'h0000_000, cfg_i.frame_content_repeat_inject}"),
     ]),
   ]),
   m('cxp_yewu_block', 3, [
@@ -625,12 +734,25 @@ export const FPGA_RS422_CATALOG: readonly FpgaRs422ModuleCatalog[] = [
       tm(14, 'yc_mod_i_set', 'I路调制设定回读', 'word[15:0]', false, "{16'h0000, stat_i.yc_mod_i_set}"),
       tm(15, 'yc_mod_q_set', 'Q路调制设定回读', 'word[15:0]', false, "{16'h0000, stat_i.yc_mod_q_set}"),
       tm(16, 'yc_mod_p_set', 'P路调制设定回读', 'word[15:0]', false, "{16'h0000, stat_i.yc_mod_p_set}"),
-      tm(17, 'freq_scan_status_flags', '扫频状态打包字', 'word[15:0]', false, "{16'h0000, stat_i.freq_scan_status_flags}"),
-      tm(18, 'yc_m195_jz_ok', '参数包校验OK', 'word[0]', false, 'bool_to_u32(stat_i.yc_m195_jz_ok)'),
-      tm(19, 'frame_lock_state', '帧同步锁定', 'word[0]', false, 'bool_to_u32(stat_i.frame_lock_state)'),
-      tm(20, 'freq_scan_state', '扫频状态机状态', 'word[3:0]', false, "{28'd0, stat_i.freq_scan_state}"),
-      tm(21, 'last_fault_reason', '最近禁止/退出原因', 'word[7:0]', false, "{24'd0, stat_i.last_fault_reason}"),
-      tm(22, 'temp_stable_status_flags', '温度稳定状态打包字', 'word[15:0]', false, "{16'h0000, stat_i.temp_stable_status_flags}"),
+      tm(17, 'freq_param_ready', '参数基准就绪', 'word[0]', { displayOptions: READY_STATUS_OPTIONS }, 'bool_to_u32(stat_i.freq_param_ready)'),
+      tm(18, 'freq_baseline_ready', '基准已捕获', 'word[0]', { displayOptions: READY_STATUS_OPTIONS }, 'bool_to_u32(stat_i.freq_baseline_ready)'),
+      tm(19, 'laser_param_recover', '参数包恢复中', 'word[0]', { displayOptions: BOOL_STATUS_OPTIONS }, 'bool_to_u32(stat_i.laser_param_recover)'),
+      tm(20, 'freq_scan_active', '扫频接管中', 'word[0]', { displayOptions: BOOL_STATUS_OPTIONS }, 'bool_to_u32(stat_i.freq_scan_active)'),
+      tm(21, 'freq_scan_en_status', '扫频使能状态', 'word[0]', { displayOptions: ENABLE_STATUS_OPTIONS }, 'bool_to_u32(stat_i.freq_scan_en_status)'),
+      tm(22, 'freq_unload_en_status', '卸载使能状态', 'word[0]', { displayOptions: ENABLE_STATUS_OPTIONS }, 'bool_to_u32(stat_i.freq_unload_en_status)'),
+      tm(23, 'yc_m195_jz_ok', '参数包校验OK', 'word[0]', { displayOptions: DONE_STATUS_OPTIONS }, 'bool_to_u32(stat_i.yc_m195_jz_ok)'),
+      tm(24, 'frame_lock_state', '帧同步锁定', 'word[0]', { displayOptions: LOCK_STATUS_OPTIONS }, 'bool_to_u32(stat_i.frame_lock_state)'),
+      tm(25, 'freq_scan_state', '扫频状态机状态', 'word[3:0]', { displayOptions: LASER_FREQ_SCAN_STATE_OPTIONS }, "{28'd0, stat_i.freq_scan_state}"),
+      tm(26, 'last_fault_reason', '最近禁止/退出原因', 'word[7:0]', { displayOptions: LASER_LAST_FAULT_REASON_OPTIONS }, "{24'd0, stat_i.last_fault_reason}"),
+      tm(27, 'txm1_temp_1s_stable', 'TXM1 1s稳定', 'word[0]', { displayOptions: READY_STATUS_OPTIONS }, 'bool_to_u32(stat_i.txm1_temp_1s_stable)'),
+      tm(28, 'txm2_temp_1s_stable', 'TXM2 1s稳定', 'word[0]', { displayOptions: READY_STATUS_OPTIONS }, 'bool_to_u32(stat_i.txm2_temp_1s_stable)'),
+      tm(29, 'lo1_temp_1s_stable', 'LO1 1s稳定', 'word[0]', { displayOptions: READY_STATUS_OPTIONS }, 'bool_to_u32(stat_i.lo1_temp_1s_stable)'),
+      tm(30, 'lo2_temp_1s_stable', 'LO2 1s稳定', 'word[0]', { displayOptions: READY_STATUS_OPTIONS }, 'bool_to_u32(stat_i.lo2_temp_1s_stable)'),
+      tm(31, 'txm1_temp_10s_stable', 'TXM1 10s稳定', 'word[0]', { displayOptions: READY_STATUS_OPTIONS }, 'bool_to_u32(stat_i.txm1_temp_10s_stable)'),
+      tm(32, 'txm2_temp_10s_stable', 'TXM2 10s稳定', 'word[0]', { displayOptions: READY_STATUS_OPTIONS }, 'bool_to_u32(stat_i.txm2_temp_10s_stable)'),
+      tm(33, 'lo1_temp_10s_stable', 'LO1 10s稳定', 'word[0]', { displayOptions: READY_STATUS_OPTIONS }, 'bool_to_u32(stat_i.lo1_temp_10s_stable)'),
+      tm(34, 'lo2_temp_10s_stable', 'LO2 10s稳定', 'word[0]', { displayOptions: READY_STATUS_OPTIONS }, 'bool_to_u32(stat_i.lo2_temp_10s_stable)'),
+      tm(35, 'freq_scan_offset_code', '当前扫频偏移码值', 'word[15:0]', true, "{{16{stat_i.freq_scan_offset_code[15]}}, stat_i.freq_scan_offset_code}"),
     ]),
     tg('cfg', 0x81, [
       tm(0, 'txm_on', '发射激光器开关', 'word[1:0]', false, "{30'h0000_0000, cfg_i.txm_on}"),
@@ -672,7 +794,7 @@ export const FPGA_RS422_CATALOG: readonly FpgaRs422ModuleCatalog[] = [
       p('BIZ_TX_PARAM_ENABLE_C', '业务发送使能配置', 0, 'map', 1, 32, 1, 2, 0, cm('switch', 0, 'word[0]', ENABLE_OPTIONS)),
     ]),
     cg('BIZ_TX_CMD_GROUP_PULSE_CLEAR_C', 0x12, [
-      p('BIZ_TX_PARAM_COUNT_CLEAR_C', '计数复位', 1, 'pulse', 0, 0, 1, 0, undefined, pulseMeta()),
+      p('BIZ_TX_PARAM_COUNT_CLEAR_C', '业务发送计数清零', 1, 'pulse', 0, 0, 1, 0, undefined, pulseMeta()),
     ]),
     cg('BIZ_TX_CMD_GROUP_PULSE_RESET_C', 0x13, [
       p('BIZ_TX_PARAM_RESET_C', '业务发送复位', 2, 'pulse', 0, 0, 1, 0, undefined, pulseMeta()),

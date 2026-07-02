@@ -10,6 +10,16 @@ export const FPGA_RS422_20260609_GOLDEN_COMMAND_FRAMES: readonly FpgaRs422Golden
     moduleKey: 'comm_rx_block',
     groupKey: 'COMM_RX_CMD_GROUP_MAP_C',
     sourceRef: COMM_RX_COMMAND_EXECUTION_SOURCE,
+    paramValues: {
+      COMM_RX_PARAM_RATE_C: 0,
+      COMM_RX_PARAM_DECODE_C: 0,
+      COMM_RX_PARAM_DESCRAMBLE_C: 0,
+      COMM_RX_PARAM_FILTER_C: 0,
+      COMM_RX_PARAM_LOOP_BW_C: 0,
+      COMM_RX_PARAM_TIMING_FILTER_C: 0,
+      COMM_RX_PARAM_AUTO_RESET_C: 0,
+      COMM_RX_PARAM_LOOP_ENABLE_C: 0,
+    },
     bytes: [
       0x1a, 0xcf, 0xfc, 0x1d,
       0x00, 0x00, 0x00, 0x24,
@@ -81,4 +91,3 @@ export const FPGA_RS422_20260609_GOLDEN_COMMAND_FRAMES: readonly FpgaRs422Golden
     ],
   },
 ];
-

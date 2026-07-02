@@ -3,6 +3,7 @@ import {
   buildFpgaCommandFrame,
   findModuleByKey,
   formatWordHex,
+  resolveFpgaCommandGroupKey,
   type BuildFpgaCommandFrameRequest,
   type FpgaCommandBuildResult,
   type FpgaCommandParamValues,
@@ -180,7 +181,8 @@ export function getDefaultFpgaCommandParamValues(
   groupKey: string,
 ): FpgaCommandParamValues {
   const moduleDef = findModuleByKey(moduleKey);
-  const group = moduleDef?.commandGroups.find((item) => item.key === groupKey);
+  const resolvedGroupKey = resolveFpgaCommandGroupKey(moduleKey, groupKey);
+  const group = moduleDef?.commandGroups.find((item) => item.key === resolvedGroupKey);
   if (!group) {
     return {};
   }
@@ -263,6 +265,42 @@ function formatTelemetryFieldValue(result: FpgaTelemetryParseResult, value: numb
   return formatWordHex(value);
 }
 
+function formatTelemetryFieldDisplayValue(
+  result: FpgaTelemetryParseResult,
+  field: FpgaTelemetryParseResult['fields'][number],
+): string {
+  if (field.rawValue === undefined) {
+    return '--';
+  }
+
+  const matchedOption = field.displayOptions?.find((option) => option.value === field.rawValue);
+  if (matchedOption) {
+    return matchedOption.label;
+  }
+
+  return formatTelemetryFieldValue(result, field.rawValue, field.signed);
+}
+
+function formatTelemetryFieldDetail(
+  result: FpgaTelemetryParseResult,
+  field: FpgaTelemetryParseResult['fields'][number],
+): string {
+  const baseDetail = `${field.bitRange ?? `word ${field.wordIndex}`} 路 ${field.bitWidth} bit${field.signed ? ' signed' : ''}`;
+  if (field.rawValue === undefined) {
+    return baseDetail;
+  }
+
+  const rawValueText = formatTelemetryFieldValue(result, field.rawValue, field.signed);
+  const matchedOption = field.displayOptions?.find((option) => option.value === field.rawValue);
+  if (!matchedOption) {
+    return baseDetail;
+  }
+
+  return matchedOption.note
+    ? `${baseDetail} · 原始值 ${rawValueText} · ${matchedOption.note}`
+    : `${baseDetail} · 原始值 ${rawValueText}`;
+}
+
 function createTelemetryFieldRow(
   result: FpgaTelemetryParseResult,
   field: FpgaTelemetryParseResult['fields'][number],
@@ -270,8 +308,8 @@ function createTelemetryFieldRow(
   return {
     key: field.key,
     label: field.label,
-    value: field.rawValue === undefined ? '--' : formatTelemetryFieldValue(result, field.rawValue, field.signed),
-    detail: `${field.bitRange ?? `word ${field.wordIndex}`} 路 ${field.bitWidth} bit${field.signed ? ' signed' : ''}`,
+    value: formatTelemetryFieldDisplayValue(result, field),
+    detail: formatTelemetryFieldDetail(result, field),
   };
 }
 

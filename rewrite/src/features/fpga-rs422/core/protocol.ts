@@ -1,4 +1,4 @@
-import { FPGA_RS422_CATALOG } from './catalog';
+import { FPGA_RS422_CATALOG, resolveFpgaCommandGroupKey } from './catalog';
 import type {
   BuildFpgaCommandFrameRequest,
   FpgaCommandBuildResult,
@@ -37,7 +37,8 @@ export function buildFpgaCommandFrame(request: BuildFpgaCommandFrameRequest): Fp
     }]);
   }
 
-  const group = moduleDef.commandGroups.find((item) => item.key === request.groupKey);
+  const resolvedGroupKey = resolveFpgaCommandGroupKey(request.moduleKey, request.groupKey);
+  const group = moduleDef.commandGroups.find((item) => item.key === resolvedGroupKey);
   if (!group) {
     return invalidBuildResult([{
       code: 'fpga.catalog.unknownCommandGroup',
@@ -235,6 +236,7 @@ export function parseFpgaTelemetryFrame(bytes: readonly number[]): FpgaTelemetry
       signed: field.signed,
       rawValue: rawWord === undefined ? undefined : extractTelemetryFieldValue(rawWord, field.bitRange, field.bitWidth, field.signed),
       wordIndex: field.wordIndex,
+      ...(field.displayOptions ? { displayOptions: field.displayOptions } : {}),
     };
   });
 

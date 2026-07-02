@@ -7,7 +7,7 @@ import type {
 } from '@/features/connection';
 
 const TRANSPORT_KIND_ORDER = ['serial', 'tcp-client', 'tcp-server', 'udp'] as const satisfies readonly TransportKind[];
-const BAUD_RATES = [9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600] as const;
+const BAUD_RATES = [9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600, 1000000] as const;
 
 const KIND_META: Record<TransportKind, { label: string; subLabel: string; icon: string }> = {
   serial: { label: '串口', subLabel: 'Serial', icon: 'cable' },
@@ -39,7 +39,7 @@ const serialRefreshing = ref(false);
 
 const label = ref('');
 const portPath = ref('');
-const baudRate = ref<number>(115200);
+const baudRate = ref<number>(1000000);
 
 const tcpClientHost = ref('');
 const tcpClientPort = ref(8080);
@@ -98,7 +98,7 @@ function resetForm(): void {
   step.value = showTypeStep.value ? 'type' : 'form';
   label.value = '';
   portPath.value = '';
-  baudRate.value = 115200;
+  baudRate.value = 1000000;
   tcpClientHost.value = '';
   tcpClientPort.value = 8080;
   tcpServerHost.value = '0.0.0.0';
